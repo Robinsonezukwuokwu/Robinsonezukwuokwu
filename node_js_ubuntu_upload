@@ -1,0 +1,475 @@
+Node.js Deployment
+Steps to deploy a Node.js app to DigitalOcean using PM2, NGINX as a reverse proxy and an SSL from LetsEncrypt
+
+1. Sign up for Digital Ocean
+If you use the referal link below, you get $10 free (1 or 2 months) https://m.do.co/c/5424d440c63a
+
+2. Create a droplet and log in via ssh
+I will be using the root user, but would suggest creating a new user
+
+3. Install Node/NPM
+curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+
+sudo apt install nodejs
+
+node --version
+4. Clone your project from Github
+There are a few ways to get your files on to the server, I would suggest using Git
+
+git clone yourproject.git
+5. Install dependencies and test app
+cd yourproject
+npm install
+npm start (or whatever your start command)
+# stop app
+ctrl+C
+6. Setup PM2 process manager to keep your app running
+sudo npm i pm2 -g
+pm2 start app (or whatever your file name)
+
+# Other pm2 commands
+pm2 show app
+pm2 status
+pm2 restart app
+pm2 stop app
+pm2 logs (Show log stream)
+pm2 flush (Clear logs)
+
+# To make sure app starts when reboot
+pm2 startup ubuntu
+You should now be able to access your app using your IP and port. Now we want to setup a firewall blocking that port and setup NGINX as a reverse proxy so we can access it directly using port 80 (http)
+7. Setup ufw firewall
+sudo ufw enable
+sudo ufw status
+sudo ufw allow ssh (Port 22)
+sudo ufw allow http (Port 80)
+sudo ufw allow https (Port 443)
+8. Install NGINX and configure
+sudo apt install nginx
+
+sudo nano /etc/nginx/sites-available/default
+Add the following to the location part of the server block
+
+    server_name yourdomain.com www.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:5000; #whatever port your app runs on
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+# Check NGINX config
+sudo nginx -t
+
+# Restart NGINX
+sudo service nginx restart
+You should now be able to visit your IP with no port (port 80) and see your app. Now let's add a domain
+9. Add domain in Digital Ocean
+In Digital Ocean, go to networking and add a domain
+
+Add an A record for @ and for www to your droplet
+
+Register and/or setup domain from registrar
+I prefer Namecheap for domains. Please use this affiliate link if you are going to use them https://namecheap.pxf.io/c/1299552/386170/5618
+
+Choose "Custom nameservers" and add these 3
+
+ns1.digitalocean.com
+ns2.digitalocean.com
+ns3.digitalocean.com
+It may take a bit to propogate
+
+Add SSL with LetsEncrypt
+sudo add-apt-repository ppa:certbot/certbot
+sudo apt-get update
+sudo apt-get install python-certbot-nginx
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# Only valid for 90 days, test the renewal process with
+certbot renew --dry-run
+
+===========================================================================================================================================================================
+PROBLEM \\ i encountered a problem while trying to implement multiple user authentication strategies in passport.js.
+It would only authenticate one user model which was the client in this case with myhousematter.com
+
+SOLUTION \\ i found a blog post by Matthew Volk where he rewrote the passport.serializeUser and passport.deserializeUser 
+functions which checked for the user model that were being authenticated and created a session with the user's unique ID
+while storing the session object on the database and client side
+
+=======================================================================================================================
+PROBLEM \\ FInd and replace in vscode
+
+SOLUTION \\ 
+(mac) cmd + shift + h
+(PC) ctrl + shift + h
+expand replace
+enter search term and replace term
+confirm!
+
+=======================================================================================================================
+
+PROBLEM \\ Install free SSL from zeroSSL on hostinger
+
+SOLUTION \\ 
+
+Sign up on zeroSSL and follow the steps to create a new SSL certificate
+
+Example #1:
+Allow ZeroSSL certificates for site.com, including any subdomains as well as wildcards.
+
+site.com. (CAA Record) CAA 0 issue "sectigo.com" 3600
+site.com. (CAA Record) CAA 0 issuewild "sectigo.com" 3600
+
+
+Example #2:
+Allow ZeroSSL certificates for example.com, including any subdomains but not including wildcards.
+
+site.com. (CAA Record) CAA 0 issue "sectigo.com" 3600
+site.com. (CAA Record) CAA 0 issuewild ";" 3600
+
+
+Example #3:
+Allow ZeroSSL certificates for page.site.com only, not including the root domain, any subdomains as well as wildcards.
+
+page.site.com. 3600 IN CAA 0 issue "sectigo.com"
+site.com. (CAA Record) CAA 0 issuewild ";" 3600
+site.com. (CAA Record) CAA 0 issue ";" 3600
+
+
+https://caatest.co.uk/ (Test for validity ad availability of CAA records on domain)
+
+If all goes through, download and install the SSL certificate generated on your domain
+
+=======================================================================================================================
+
+PROBLEM \\ couldnt ssh into my server through putty (struggled with it for dayyssss) but finally solved it :)
+
+SOLUTION \\ The internet is just a miracle. Looked up a youtube video on the "putty fatal error: connection refused" and it
+pointed me in the right direction i.e to check the status of my ssh service with "service ssh status" on my ubuntu droplet and it turned out it
+was inactive because of a syntax error that i hadn't known about all along
+
+Step 1 - On my Digital Ocean Ubuntu Droplet Recovery Console, i ran the following command "/usr/sbin/sshd -T" 
+and it showed me the line where there was an error in my "/etc/ssh/sshd_config" file and it turned out i had the character 
+"e" at the beginning of the the first line of commented instructions. 
+
+Step 2 - ran the command "nano etc/ssh/sshd_config" to open up the file with nano
+
+Step 3 - Deleted The Character at the beginning of the commented code, saved the file and exited out of the file
+
+Step 4 - ran the command "sudo service ssh restart" (No errors so it confirmed no syntax errors)
+
+Step 5 - ran the command "service ssh status" to check the status of the ssh service 
+
+Step 6 - LO AND BEHOLD, SSH BECAME ACTIVE!!!!!!!!! and i could ssh into my ubuntu server again through putty
+
+
+=======================================================================================================================
+
+
+PROBLEM \\ ADDING USER TO LINUX SERVER AND GIVING SUDO PRIVILEDGES
+
+SOLUTION \\ https://linnali.com/posts/deploy-fullstack-nodejs-mongodb-express-backend-and-react-frontend-on-digital-ocean-with-nginx-single-droplet/
+
+adduser <name> (ADD NEW PASSWORD TAB THROUGH THE REST OF THE OPTIONS)
+
+usermod -aG sudo <name> (ASSIGN SUDO PRIVILEDGES)
+
+id <name> (Check for user details and if sudo is added for user)
+
+sudo su - <name> (Login as a new user)
+
+whoami (Check logged in user)
+
+
+mkdir ~/.ssh (Create ssh folder for authentication)
+
+chmod 700 ~/.ssh
+
+nano ~/.ssh/authorized_keys (Paste in public key for authorization)
+
+chmod 600 ~/.ssh/authorized_keys
+
+sudo service ssh restart (Restart ssh service)
+
+sudo nano /etc/ssh/sshd_config (configure authentication and authorization)
+
+// INSTALL MONGODB
+
+sudo apt install mongodb (Install mongodb manually)
+
+sudo systemctl status mongodb (Check mongodb status)
+
+sudo apt update (Update system)
+
+sudo apt upgrade (Upgrade command)
+
+// INSTALL NODE JS
+
+curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+
+sudo apt install nodejs
+
+sudo apt install build-essential
+
+// INSTALL NGINX
+
+sudo apt install nginx
+
+// CONTINUE
+
+sudo nano /etc/nginx/sites-available/default (Edit nginx config file)
+
+PASTE THE FOLLOWING COMMAND INTO THE SERVER BLOCK
+
+server {
+
+ root /var/www/html;
+# Add index.php to the list if you are using PHP
+index index.html index.htm index.nginx-debian.html;
+ server_name premiumwealthassets.com www.premiumwealthassets.com;
+
+
+ location / {
+
+ proxy_pass http://localhost:3000;
+ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+ proxy_set_header Host $host;
+ proxy_set_header X-NginX-Proxy true;
+ proxy_http_version 1.1;
+ proxy_set_header Upgrade $http_upgrade;
+ proxy_set_header Connection “upgrade”;
+ proxy_max_temp_file_size 0;
+ proxy_redirect off;
+ proxy_read_timeout 240s;
+ }
+
+}
+
+sudo ufw app list (List profiles which are currently available)
+
+ufw allow 'Nginx HTTPS'
+
+ufw status # checks status of firewall
+
+sudo ufw allow PORT_NUMBER (#change ufw to allow a port)
+
+sudo ufw allow 80
+
+sudo ufw delete RULE_NAME (#change ufw to delete an allowed rule)
+
+sudo ufw delete allow 80
+
+sudo nginx -t (check config file syntax)
+
+sudo service nginx restart (#option 1 to restart nginx)
+
+sudo systemctl restart nginx (#option 2 to restart nginx)
+
+sudo systemctl status nginx (#check nginx status)
+
+sudo systemctl stop nginx (#stop nginx)
+
+// INSTALL SSL
+
+(* Run the next series of commands )
+
+sudo snap install core; sudo snap refresh core
+
+sudo snap install --classic certbot
+
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+sudo certbot --nginx (# recommended option)
+
+sudo certbot certonly --nginx (# conservative option, if you want to make changes to nginx configuration by hand)
+
+
+sudo certbot renew --dry-run (# auto renew certificates before they expire)
+
+// INSTALL PM2  AND RUN PROJECT
+
+sudo npm install pm2 -g
+
+git clone <github repo url> (clone github repository into your server)
+
+git pull <repo> (to pull in changes into your server)
+
+cd <project file> (Enter into cloned repository)
+
+npm install (Install project dependencies)
+
+"npm start" (start up project) for development or  "pm2 start app.js" to run it for production
+
+go to browser and paste ip address or domain name in your nginx config file and it should be available
+
+pm2 startup ubuntu (start pm2 on startup of linux server)
+
+
+=====================================================================================================
+
+PROBLEM \\ DELETE AN SSL CERTIFICATE IN DIGITAL OCEAN DROPLET
+
+SOLUTION \\ sudo certbot delete
+
+
+=====================================================================
+
+
+PROBLEM \\ REMOVE AN NGINX CONFIG FOR A SITE
+
+SOLUTION \\ 
+
+cd /etc/nginx/sites-enabled  
+
+ls
+
+sudo rm your-site-config  
+
+sudo service nginx reload 
+
+========================================================================	
+PROBLEM \\ GIT REMOVE ORIGIN
+
+SOLUTION \\
+
+git remote rm <remote origin> (remove remote origin)
+
+=======================================================================================================================
+
+PROBLEM \\ RENAME FOLDER
+
+SOLUTION \\ 
+
+cd into folder containing folder that you want to rename
+
+mv <folder-name> <new-folder-name>
+
+=======================================================================================================================
+
+PROBLEM \\ MAKE PHONE NUMBER NOT CLICKABLE IN HTML FOR SAFARI
+
+SOLUTION \\ <meta name="format-detection" content="telephone=no" />
+
+
+=======================================================================================================================
+
+PROBLEM \\ FLEX ITEM STAY SAME SIZE ON FLEX CONTAINER WRAP
+
+SOLUTION \\
+
+flex: 0 1 <//flex basis>%;
+
+=======================================================================================================================
+
+PROBLEM \\ IMPORT MONGO DB DATABASE
+
+RUN COMMAND mongoimport --db DATABASENAME --collection  COLLECTIONNAME --file EXPORTED FILE DIRECTORY
+
+
+\\ EXPORT MONGODB DATABASE
+
+RUN COMMAND mongoexport --db DATABASENAME --collection COLLECTIONNAME --out file.json
+=========================================================================================================================
+
+PROBLEM \\ ADD PROFILE PHOTO TO A PRIVATE EMAIL ADDRESS
+
+SOLUTION \\
+
+1. Go to a gmail address you want to make use of.
+
+2. click on the account
+
+3. click on the personal info tab
+
+4. scroll down and click on the email address option
+
+5. Scroll down and you shoulkd see an alternate email option, click on it
+
+6. Click on add new alternate email and add a new custom email address that you have created
+
+7. You will be promted to verify the email address with the link that will be sent to the inbox of the new alternate email.
+
+8. Verify the custom email address and boom
+
+9. Add a picture to the gmail address and the next time you send an email with the custom email, you should  be able to see the profile picture attached to it
+
+=======================================================================================================================
+
+
+PROBLEM \\ FIND PASSWORD FOR ANY WIFI NETWORK YOU HAVE CONNECTED TO
+
+SOLUTION \\ Netsh wlan show profile name="<WIFI NAME>" key=clear
+
+You'll find the password in the "key content" field of the output
+
+=======================================================================================================================
+
+PROBLEM \\ UNINSTALL NGINX
+
+SOLUTION \\ sudo apt-get remove nginx nginx-common
+
+=======================================================================================================================
+
+PROBLEM \\ IMPORT EJS VARIABLES IN JAVASCRIPT
+
+SOLUTION \\ let variableName = <%- JSON.stringify(ejsvariable) %>
+
+=======================================================================================================================
+
+PROBLEM \\ CROP IMAGES CSS *(unsolved)
+
+SOLUTION \\
+
+=======================================================================================================================
+
+PROBLEM \\ MAKE USERNAME OR CREDENTIALS CASE INSENSITIVE ON LOGIN
+
+SOLUTION \\
+
+=======================================================================================================================
+
+PROBLEM \\ CREATE LINKS FOR EXPRESS USING UNIQUE NAMES INSTEAD OF ID
+
+SOLUTION \\
+
+=======================================================================================================================
+
+PROBLEM \\ SHOW PSEUDO CLASSES WHEN FORM INPUT IS VALID AND INVALID
+
+SOLUTION \\
+
+  &__input:not(:placeholder-shown):valid {
+    background: url(../../img/good.svg);
+    background-size: 2rem;
+    background-repeat: no-repeat;
+    background-position: 96% 2rem;
+
+// custom styles for valid input
+  }
+
+  &__input:not(:placeholder-shown):invalid {
+    border: 2px solid  $color-red-1;
+
+// custom styles for invalid input
+  }
+
+
+=======================================================================================================================
+
+PROBLEM \\ GET TO THE ROOT FOLDER ON MAC
+
+SOLUTION \\
+
+ cmd + shift + G
+
+
+=======================================================================================================================
+
+
+PROBLEM \\ SHOW HIDDEN FILES IN A FOLDER ON MAC
+
+SOLUTION \\
+
+ cmd + shift + .(period)
